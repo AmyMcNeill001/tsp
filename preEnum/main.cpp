@@ -17,6 +17,7 @@ struct Point
     float y;
     Point* next;
     Point* previous;
+    Point();
     Point(float &inX, float &inY, Point* inNext, Point* inPrevious);
     Point& operator=(Point &rhsObj);
 };//END struct Point
@@ -41,6 +42,12 @@ Point& Point::operator=(Point &rhsObj)
     return *this;
 }
 
+Point::Point()
+{
+    x = -1;
+    y = -1;
+}
+
 /****************************************************************************
  *                                                                          *
  *                struct Edge Declaration & Definitions                     *
@@ -56,6 +63,7 @@ struct Edge
     Edge();
     Edge(Point* inLeft, Point* inRight);
     Edge& operator=(Edge &rhsObj);
+    void updateDist();
 };//END struct Edge
 
 float distCalc(Point* pointOne, Point* pointTwo)
@@ -119,12 +127,19 @@ public:
     Edge* edges;
     void swap(Edge &first, Edge &second);
     float currentDist();
+    float checkCrossed(Edge &ii, Edge &xx);
     void twoOpt();
+    
+    Point* arrayMaker();
+    float arrayDistCalc(Point* array);
+    float brutish(float &greedy);
+    void arraySwap(int &xx, int &ii, Point* greedArray);
+    
 };//END tsp declaration
 
 tsp::tsp()
 {
-    ifstream inFile("//Users//amymcneill//Desktop//tspV2//input_4.csv");
+    ifstream inFile("//Users//amymcneill//Desktop//tspV2//input_6.csv");
     if (inFile)
     {
         cout << "It's opened!" << endl;
@@ -150,7 +165,11 @@ tsp::tsp()
         
         float greedBest = greedy();
         cout << "The best distance is: " << greedBest << " meters!" << endl;
-        twoOpt();
+//        twoOpt();
+        
+        float brutishClose = brutish(greedBest);
+        
+        cout << "Brutish produces: " << brutishClose << endl;
         
         inFile.close();
     }
@@ -372,14 +391,44 @@ float tsp::currentDist()
     return dist;
 }//END currentdist
 
+void Edge::updateDist()
+{
+    this->distance = distCalc(left, right);
+}
+
 void tsp::swap(Edge &first, Edge &second)
 {
-    Edge tempOne = Edge(first.left, second.right);
-    Edge tempTwo = Edge(second.left, first.right);
+    cout << first.left->x << "  " << first.right->x << endl;
+    cout << second.left->x << "  " << second.right->x << endl;
     
-    first = tempOne;
-    second = tempTwo;
+    Point* FL = first.left;
+    Point* FR = first.right;
+    Point* SL = second.left;
+    Point* SR = second.right;
+
+    first.left = FL;
+    first.right = SR;
+    
+    second.left = SL;
+    second.right = FR;
+    
+    first.updateDist();
+    second.updateDist();
+    
+//    cout << first.distance << "  " << second.distance << endl;
 }//END swap
+
+float tsp::checkCrossed(Edge &ii, Edge &xx)
+{
+    Edge c, d;
+    
+    c.left = ii.left;
+    c.right = xx.right;
+    d.left = xx.left;
+    d.right = ii.right;
+    
+    return distCalc(c.left, c.right) + distCalc(d.left, d.right);
+}//END check crossed function
 
 void tsp::twoOpt()
 {
@@ -398,30 +447,17 @@ void tsp::twoOpt()
     Edge edgeHolder(end, start);
     edges[pointNum-1] = edgeHolder;
     
-    //perform two-opt comparisons
     for(int ii = 0; ii < ceil(pointNum/2); ii++)
     {
-        float origDist = currentDist();
-        
-        if(ii == 0)
+        for(int xx = ii + 1; xx < pointNum; xx++)
         {
-            for(int xx = 2; xx < pointNum - 2; xx++)
+            if (checkCrossed(edges[ii], edges[xx]) < (edges[ii].distance + edges[xx].distance))
             {
-                //try swapping this edges
-                swap(edges[ii], edges[xx]);
-                
-                //if it's not better, switch back
-                if(currentDist() > origDist)
-                {
-                    cout << "Swapping back" << endl;
-                    swap(edges[ii], edges[xx]);
-                }
-                else
-                    origDist = currentDist();
+//                swap(edges[ii], edges[xx]);
+                cout << "Swapping!" << endl;
             }
         }
-        
-    }//END outer loop through first half of nodes
+    }
     
     float best = currentDist();
     
@@ -430,6 +466,67 @@ void tsp::twoOpt()
     delete edges;
     
 }//END twoOpt function
+
+Point* tsp::arrayMaker()
+{
+    Point* array = new Point[pointNum];
+    Point* temp = start;
+    int ii = 0;
+    
+    while(temp != end)
+    {
+        array[ii] = *temp;
+        temp = temp->next;
+        ii++;
+    }
+    array[pointNum - 1] = *end;
+    return array;
+}
+
+void tsp::arraySwap(int &xx, int &ii, Point* greedArray)
+{
+    Point xholder = greedArray[xx];
+    greedArray[xx] = greedArray[ii];
+    greedArray[ii] = xholder;
+}
+
+float tsp::arrayDistCalc(Point* array)
+{
+    float dist = 0.0;
+    
+    for (int ii = 0; ii < pointNum -1; ii++)
+    {
+        dist+=distanceCalc(&array[ii], &array[ii+1]);
+    }
+    dist += distanceCalc(&array[0], &array[pointNum - 1]);
+    
+    return dist;
+}
+
+float tsp::brutish(float &greedy)
+{
+    float newDist = greedy;
+    Point* array = arrayMaker();
+    
+    for(int ii = 0; ii < pointNum; ii++)
+    {
+        for (int xx = ii; xx < pointNum; xx++)
+        {
+            arraySwap(xx, ii, array);
+            if(arrayDistCalc(array) > newDist)
+                arraySwap(xx, ii, array);
+            else
+            {
+                cout << "Swap is sucessful!" << endl;
+                newDist = arrayDistCalc(array);
+            }
+        }
+    }
+    
+    
+    return newDist;
+    
+}
 
 int main()
 {
